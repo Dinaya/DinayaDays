@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="行事曆">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1d2128" media="(prefers-color-scheme: dark)">
+<title>我的行事曆</title>
+<!-- 由「UA 卡價比價」程式自動上傳。行事曆資料在 data.json，已用密碼加密，只能在這個頁面輸入密碼後解開。 -->
+<style>
+:root {
+  --bg: #f4f5f7; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
+  --accent: #2563eb; --accent-weak: #e8efff; --bad: #b42318; --warn: #9a5b00; --today: #fff6cc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c; --panel: #1d2128; --text: #e6e8ec; --muted: #9aa1ad; --line: #2e333c;
+    --accent: #6d9bff; --accent-weak: #1f2a44; --bad: #ff8a80; --warn: #f0b458; --today: #3b3620;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 15px/1.5 -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); -webkit-text-size-adjust: 100%; }
+button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 12px; }
+a { color: var(--accent); }
+header button { padding: 4px 9px; }
+button.on, button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+[hidden] { display: none !important; }
+.muted { color: var(--muted); }
+/* 密碼 */
+#lock { max-width: 360px; margin: 18vh auto 0; padding: 0 16px; text-align: center; }
+#lock h1 { font-size: 22px; margin: 0 0 16px; }
+#lock input[type=password] { width: 100%; font: inherit; font-size: 17px; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel); color: var(--text); }
+#lock button { width: 100%; margin-top: 12px; padding: 10px; font-size: 17px; }
+#lock .err { color: var(--bad); min-height: 1.5em; margin-top: 8px; }
+/* 上方工具列 */
+header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 12px 6px; }
+.row { display: flex; align-items: center; gap: 6px; }
+#title { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.row .gap { flex: 1; }
+#sync { font-size: 12px; margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+#sync.stale { color: var(--warn); }
+#sync button { padding: 1px 8px; font-size: 12px; margin-left: auto; }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; padding: 4px 10px; }
+.seg button:first-child { border-radius: 8px 0 0 8px; }
+.seg button:last-child { border-radius: 0 8px 8px 0; border-left: none; }
+main { padding: 8px 6px 24px; }
+.note { margin: 6px 4px; font-size: 13px; color: var(--warn); }
+/* 月曆 */
+.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.day { min-height: 76px; padding: 2px 1px 4px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.day:nth-child(7n) { border-right: none; }
+.day.other { background: var(--bg); }
+.day.other .num { opacity: .45; }
+.num { display: inline-block; font-size: 12px; font-weight: 700; margin: 0 0 1px 2px; padding: 0 5px; border-radius: 9px; }
+.day.today { background-color: var(--today); }
+.day.today .num { background: var(--accent); color: #fff !important; }
+.day.soon3 { animation: blinkOrange 2.4s ease-in-out infinite alternate; }
+.day.soon1 { animation: blinkRed 2.4s ease-in-out infinite alternate; }
+@keyframes blinkOrange { from { background-color: transparent; } to { background-color: rgba(249, 115, 22, .38); } }
+@keyframes blinkRed { from { background-color: transparent; } to { background-color: rgba(239, 68, 68, .34); } }
+.wd { text-align: center; font-size: 11px; color: var(--muted); padding: 3px 0; }
+.wd.sun, .day.sun .num { color: var(--bad); }
+.wd.sat, .day.sat .num { color: var(--accent); }
+.chip { font-size: 10px; line-height: 15px; padding: 0 2px; margin-bottom: 1px; border-radius: 3px; white-space: nowrap; overflow: hidden;
+  text-overflow: clip; border-left: 2px solid var(--c); }
+.chip.fill { background: var(--c); color: #fff; }
+.more { font-size: 10px; color: var(--muted); padding-left: 2px; }
+/* 清單 */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px 12px; }
+.lday { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.lday:last-child { border-bottom: none; }
+.ldate { font-weight: 700; font-size: 14px; }
+.lday.today .ldate { color: var(--accent); }
+.ev { display: flex; gap: 10px; align-items: flex-start; padding: 8px 2px; border-bottom: 1px dashed var(--line); }
+.ev:last-child { border-bottom: none; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c, #8b8d98); flex: none; margin-top: 6px; }
+.when { font-size: 13px; color: var(--muted); min-width: 62px; font-variant-numeric: tabular-nums; }
+.evt { flex: 1; min-width: 0; }
+.evn { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty { color: var(--muted); padding: 16px 4px; text-align: center; }
+/* 下方彈出視窗 */
+#sheetBg { position: fixed; inset: 0; background: rgba(0, 0, 0, .35); z-index: 20; }
+#sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--panel); border-radius: 14px 14px 0 0;
+  max-height: 82vh; overflow-y: auto; padding: 10px 16px calc(20px + env(safe-area-inset-bottom)); -webkit-overflow-scrolling: touch; }
+#sheet .bar { display: flex; align-items: center; gap: 8px; position: sticky; top: -10px; background: var(--panel); padding: 6px 0; }
+#sheet .bar h2 { flex: 1; font-size: 17px; margin: 0; min-width: 0; }
+.kv { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.kv .k { color: var(--muted); width: 42px; flex: none; font-size: 13px; padding-top: 1px; }
+.kv .v { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+.cmt { padding: 6px 0; border-bottom: 1px dashed var(--line); white-space: pre-wrap; word-break: break-word; }
+.cmt .muted { font-size: 12px; display: block; }
+.foot { text-align: center; font-size: 12px; margin: 14px 0 0; }
+.foot button { font-size: 12px; padding: 2px 10px; }
+</style>
+</head>
+<body>
+
+<div id="lock" hidden>
+  <h1>我的行事曆</h1>
+  <form id="lockForm">
+    <input type="password" id="pw" placeholder="行事曆密碼" autocomplete="current-password" autofocus>
+    <button class="primary" id="pwBtn">打開</button>
+  </form>
+  <div class="err" id="pwErr"></div>
+  <p class="muted" style="font-size:13px">輸入一次後這支手機會記住。<br>密碼是在電腦「UA 卡價比價 → 行事曆 → 手機同步」設定的。</p>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <div class="row">
+      <button id="prev" aria-label="上一頁">‹</button>
+      <div id="title"></div>
+      <button id="next" aria-label="下一頁">›</button>
+      <span class="gap"></span>
+      <button id="today">今天</button>
+      <span class="seg"><button data-view="month">月</button><button data-view="list">清單</button></span>
+    </div>
+    <div id="sync" class="muted"><span id="syncText"></span><button id="reload">↻ 重新整理</button></div>
+  </header>
+  <main id="body"></main>
+  <div class="foot muted">唯讀，要新增或修改請用電腦。<button id="logout">登出</button></div>
+</div>
+
+<div id="sheetBg" hidden></div>
+<div id="sheet" hidden><div class="bar"><h2 id="sheetTitle"></h2><button id="sheetBack" hidden>‹ 返回</button><button id="sheetClose">關閉</button></div><div id="sheetBody"></div></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[c]));
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const unb64 = a => btoa(String.fromCharCode(...new Uint8Array(a)));
+
+// ---- 解密 ----
+let RAW = null;   // data.json 的內容（加密狀態）
+async function deriveKey(pw, salt, iter) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
+  return crypto.subtle.deriveBits({name: "PBKDF2", hash: "SHA-256", salt: b64(salt), iterations: iter}, base, 256);
+}
+async function decrypt(raw, keyBits) {
+  const key = await crypto.subtle.importKey("raw", keyBits, "AES-GCM", false, ["decrypt"]);
+  const pt = await crypto.subtle.decrypt({name: "AES-GCM", iv: b64(raw.iv)}, key, b64(raw.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function fetchRaw() {
+  try {
+    const r = await fetch(`data.json?t=${Date.now()}`, {cache: "no-store"});
+    if (!r.ok) throw new Error(r.status);
+    const text = await r.text();
+    store.set("calRaw", text);   // 沒網路時用上次下載的
+    return {raw: JSON.parse(text), offline: false};
+  } catch {
+    const text = store.get("calRaw");
+    return text ? {raw: JSON.parse(text), offline: true} : null;
+  }
+}
+async function unlockWithSaved(raw) {
+  const k = store.get("calKey"), salt = store.get("calSalt");
+  if (!k || salt !== raw.salt) return null;   // 電腦換了密碼：要重新輸入
+  try { return await decrypt(raw, b64(k)); } catch { return null; }
+}
+
+let OFFLINE = false;
+async function start() {
+  const got = await fetchRaw();
+  if (!got) { showLock("還沒有行事曆資料，或連不上網路。請確認電腦有同步過。"); return; }
+  RAW = got.raw; OFFLINE = got.offline;
+  const data = await unlockWithSaved(RAW);
+  if (data) show(data); else showLock("");
+}
+function showLock(msg) {
+  $("#app").hidden = true; $("#lock").hidden = false;
+  $("#pwErr").textContent = msg;
+}
+$("#lockForm").onsubmit = async e => {
+  e.preventDefault();
+  if (!RAW) { await start(); if (!RAW) return; }
+  $("#pwBtn").disabled = true; $("#pwErr").textContent = "解開中…";
+  try {
+    const bits = await deriveKey($("#pw").value, RAW.salt, RAW.iter);
+    const data = await decrypt(RAW, bits);
+    store.set("calKey", unb64(bits)); store.set("calSalt", RAW.salt);
+    $("#pw").value = ""; $("#pwErr").textContent = "";
+    show(data);
+  } catch { $("#pwErr").textContent = "密碼不對"; }
+  $("#pwBtn").disabled = false;
+};
+$("#logout").onclick = () => {
+  if (!confirm("登出後要重新輸入密碼才能看。確定？")) return;
+  store.del("calKey"); store.del("calSalt"); store.del("calRaw"); location.reload();
+};
+
+// ---- 日期工具（和電腦版行事曆一樣的規則）----
+const WD = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+const WD_SHORT = ["日", "一", "二", "三", "四", "五", "六"];
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];   // 一週從星期一開始
+const REPEAT_TXT = {daily: "每天", weekly: "每週", monthly: "每月", yearly: "每年"};
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const toDate = k => new Date(k + "T00:00");
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const wdIdx = d => (d.getDay() + 6) % 7;
+const dayDiff = (a, b) => Math.round((toDate(b) - toDate(a)) / 864e5);
+const md = k => `${+k.slice(5, 7)}/${+k.slice(8)} ${WD[toDate(k).getDay()]}`;
+const isTimed = e => !e.all_day && e.end_date === e.start_date;
+const onDay = (evs, k) => evs.filter(e => e.start_date <= k && e.end_date >= k);
+function soon(k) {
+  const n = dayDiff(ymd(new Date()), k);
+  return n === 1 ? "soon1" : n === 2 || n === 3 ? "soon3" : "";
+}
+function whenText(ev) {
+  let t = md(ev.start_date);
+  if (!ev.all_day) t += " " + ev.start_time + (ev.end_time && ev.end_date === ev.start_date ? "–" + ev.end_time : "");
+  if (ev.end_date !== ev.start_date) t += " ～ " + md(ev.end_date) + (!ev.all_day && ev.end_time ? " " + ev.end_time : "");
+  return t;
+}
+function ago(iso) {
+  const m = Math.round((Date.now() - new Date(iso)) / 6e4);
+  if (m < 1) return "剛剛";
+  if (m < 60) return `${m} 分鐘前`;
+  if (m < 60 * 24) return `${Math.round(m / 60)} 小時前`;
+  return `${Math.round(m / 1440)} 天前`;
+}
+
+// ---- 畫面 ----
+let D = null;
+const S = {view: store.get("calView") === "list" ? "list" : "month", cursor: new Date()};
+S.cursor.setHours(0, 0, 0, 0);
+const label = id => D.labels.find(l => l.id === id);
+const color = ev => (label(ev.label_id) || {}).color || "#8b8d98";
+const badges = ev => `${ev.repeat ? " 🔁" : ""}${(D.comments[ev.id] || []).length ? ` 💬${D.comments[ev.id].length}` : ""}`;
+
+function show(data) {
+  D = data;
+  $("#lock").hidden = true; $("#app").hidden = false;
+  render();
+}
+function range() {
+  const c = S.cursor;
+  if (S.view === "list") return [c, addDays(c, 29)];
+  const first = new Date(c.getFullYear(), c.getMonth(), 1), last = new Date(c.getFullYear(), c.getMonth() + 1, 0);
+  return [addDays(first, -wdIdx(first)), addDays(last, 6 - wdIdx(last))];
+}
+function titleText([s, e]) {
+  const c = S.cursor;
+  if (S.view === "month") return `${c.getFullYear()} 年 ${c.getMonth() + 1} 月`;
+  return `${s.getMonth() + 1}/${s.getDate()} – ${e.getMonth() + 1}/${e.getDate()}`;
+}
+function render() {
+  if (!D) return;
+  const r = range(), days = [];
+  for (let d = r[0]; d <= r[1]; d = addDays(d, 1)) days.push(ymd(d));
+  $("#title").textContent = titleText(r);
+  document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === S.view));
+  const age = (Date.now() - new Date(D.generated_at)) / 36e5;
+  $("#syncText").textContent = `${OFFLINE ? "沒有網路，顯示手機上次下載的資料。" : ""}最後同步：${D.generated_at.slice(5, 16).replace("-", "/").replace("T", " ")}（${ago(D.generated_at)}）`;
+  $("#sync").classList.toggle("stale", OFFLINE || age > 24);
+  const out = days[0] < D.from || days[days.length - 1] > D.to
+    ? `<div class="note">只同步了 ${D.from.replaceAll("-", "/")} 到 ${D.to.replaceAll("-", "/")} 的行程，這段期間以外的看不到。</div>` : "";
+  $("#body").innerHTML = out + (S.view === "month" ? monthHtml(days) : listHtml(days));
+}
+function chip(ev, day) {
+  const cont = ev.start_date < day;
+  const text = (cont ? "↳" : "") + (!ev.all_day && !cont ? ev.start_time + " " : "") + ev.title;
+  return `<div class="chip${isTimed(ev) ? "" : " fill"}" style="--c:${esc(color(ev))}">${esc(text)}</div>`;
+}
+function monthHtml(days) {
+  const month = S.cursor.getMonth(), today = ymd(new Date());
+  let html = "";
+  for (const k of days) {
+    const d = toDate(k), list = onDay(D.events, k);
+    const cls = ["day", d.getMonth() !== month && "other", k === today && "today", list.length && soon(k),
+      d.getDay() === 0 && "sun", d.getDay() === 6 && "sat"].filter(Boolean).join(" ");
+    const more = list.length > 3 ? `<div class="more">+${list.length - 3}</div>` : "";
+    html += `<div class="${cls}" data-date="${k}"><div class="num">${d.getDate()}</div>${list.slice(0, 3).map(e => chip(e, k)).join("")}${more}</div>`;
+  }
+  // 星期寫在月曆最下面（和電腦版一樣）
+  html += WEEK_ORDER.map(i => `<div class="wd${i === 0 ? " sun" : i === 6 ? " sat" : ""}">${WD_SHORT[i]}</div>`).join("");
+  return `<div class="grid">${html}</div>`;
+}
+function rowsHtml(evs) {
+  return evs.map(e => `<div class="ev" data-ev="${e.id}" data-occ="${esc(e.occ || e.start_date)}">
+      <span class="dot" style="--c:${esc(color(e))}"></span>
+      <span class="when">${e.all_day || !isTimed(e) ? "整天" : esc(e.start_time + (e.end_time ? "–" + e.end_time : ""))}</span>
+      <span class="evt">${esc(e.title)}${badges(e)}${e.note ? `<span class="evn">${esc(e.note.split("\n")[0])}</span>` : ""}</span>
+    </div>`).join("");
+}
+function listHtml(days) {
+  const today = ymd(new Date());
+  const html = days.map(k => { const list = onDay(D.events, k);
+    return list.length ? `<div class="lday${k === today ? " today" : ""}"><div class="ldate">${md(k)}${k === today ? " 今天" : ""}</div>${rowsHtml(list)}</div>` : ""; }).join("");
+  return `<div class="panel">${html || '<div class="empty">這 30 天沒有活動</div>'}</div>`;
+}
+
+// ---- 彈出視窗：某一天、某個活動 ----
+let sheetDay = null;
+function openSheet(title, html, back) {
+  $("#sheetTitle").textContent = title; $("#sheetBody").innerHTML = html;
+  $("#sheetBack").hidden = !back;
+  $("#sheet").hidden = $("#sheetBg").hidden = false; $("#sheet").scrollTop = 0;
+}
+function closeSheet() { $("#sheet").hidden = $("#sheetBg").hidden = true; sheetDay = null; }
+function openDay(k) {
+  sheetDay = k;
+  const list = onDay(D.events, k);
+  openSheet(md(k), list.length ? rowsHtml(list) : '<div class="empty">這天沒有活動</div>', false);
+}
+function openEvent(id, occ) {
+  const ev = D.events.find(e => e.id === id && (e.occ || e.start_date) === occ) || D.events.find(e => e.id === id);
+  if (!ev) return;
+  const lab = label(ev.label_id), cm = D.comments[ev.id] || [];
+  const kv = (k, v) => v ? `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>` : "";
+  openSheet(ev.title,
+    kv("時間", esc(whenText(ev) + (ev.all_day ? "（整天）" : ""))) +
+    kv("標籤", lab ? `<span class="dot" style="display:inline-block;margin:0 4px 0 0;--c:${esc(lab.color)}"></span>${esc(lab.name)}` : "") +
+    kv("重複", ev.repeat ? REPEAT_TXT[ev.repeat] || esc(ev.repeat) : "") +
+    kv("備註", ev.note ? linkify(ev.note) : "") +
+    (cm.length ? `<h3 style="font-size:15px;margin:14px 0 4px">留言（${cm.length}）</h3>` +
+      cm.map(c => `<div class="cmt"><span class="muted">${esc(c.at.replace("T", " ").slice(0, 16))}</span>${linkify(c.text)}</div>`).join("") : ""),
+    sheetDay !== null);
+}
+// 網址變成可以點的連結
+const linkify = t => esc(t).replace(/https?:\/\/[^\s<>"'&]+(?:&amp;[^\s<>"'&]+)*/g, u => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
+
+$("#body").addEventListener("click", e => {
+  const ev = e.target.closest("[data-ev]"), day = e.target.closest("[data-date]");
+  if (ev) openEvent(+ev.dataset.ev, ev.dataset.occ);
+  else if (day) openDay(day.dataset.date);
+});
+$("#sheetBody").addEventListener("click", e => {
+  const ev = e.target.closest("[data-ev]");
+  if (ev) openEvent(+ev.dataset.ev, ev.dataset.occ);
+});
+$("#sheetClose").onclick = $("#sheetBg").onclick = closeSheet;
+$("#sheetBack").onclick = () => openDay(sheetDay);
+
+// ---- 換頁：按鈕、左右滑 ----
+function step(dir) {
+  const c = S.cursor;
+  S.cursor = S.view === "month" ? new Date(c.getFullYear(), c.getMonth() + dir, 1) : addDays(c, dir * 30);
+  render();
+}
+$("#prev").onclick = () => step(-1);
+$("#next").onclick = () => step(1);
+$("#today").onclick = () => { S.cursor = new Date(); S.cursor.setHours(0, 0, 0, 0); render(); };
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { S.view = b.dataset.view; store.set("calView", S.view); render(); });
+let touch = null;
+$("#body").addEventListener("touchstart", e => { touch = e.touches.length === 1 ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : null; }, {passive: true});
+$("#body").addEventListener("touchend", e => {
+  if (!touch) return;
+  const dx = e.changedTouches[0].clientX - touch.x, dy = e.changedTouches[0].clientY - touch.y;
+  touch = null;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);   // 往左滑 = 下一頁
+});
+
+// ---- 重新整理：按鈕、切回這個頁面時 ----
+async function refresh() {
+  const got = await fetchRaw();
+  if (!got) return;
+  RAW = got.raw; OFFLINE = got.offline;
+  const data = await unlockWithSaved(RAW);
+  if (data) { D = data; if (!$("#app").hidden) render(); } else showLock("電腦上的密碼改過了，請輸入新密碼。");
+}
+$("#reload").onclick = refresh;
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (D && Date.now() - hiddenAt > 60e3) refresh(); else if (D) render();   // 隔天打開時「今天」也會跟著變
+});
+
+if (!window.crypto || !crypto.subtle) showLock("這個瀏覽器不支援解密，請用 Safari 打開 https 網址。");
+else start();
+</script>
+</body>
+</html>
