@@ -185,19 +185,38 @@ async function start() {
 }
 function showLock(msg) {
   $("#app").hidden = true; $("#lock").hidden = false;
-  $("#pwErr").textContent = msg;
+  $("#pwErr").textContent = msg || lockMsg();
+}
+// 輸錯限制：連錯 5 次鎖 5 分鐘，之後每再錯一次鎖的時間加倍（最多 24 小時）
+const MAX_TRIES = 5, LOCK_MIN = 5 * 60e3, LOCK_MAX = 24 * 3600e3;
+const fails = () => +store.get("calFails") || 0;
+const lockedUntil = () => +store.get("calLockUntil") || 0;
+function lockMsg() {
+  const left = lockedUntil() - Date.now();
+  if (left <= 0) return "";
+  const m = Math.ceil(left / 60e3);
+  return `密碼錯太多次，請 ${m >= 60 ? `${Math.ceil(m / 60)} 小時` : `${m} 分鐘`}後再試。`;
 }
 $("#lockForm").onsubmit = async e => {
   e.preventDefault();
+  if (lockMsg()) { $("#pwErr").textContent = lockMsg(); return; }
   if (!RAW) { await start(); if (!RAW) return; }
   $("#pwBtn").disabled = true; $("#pwErr").textContent = "解開中…";
   try {
     const bits = await deriveKey($("#pw").value, RAW.salt, RAW.iter);
     const data = await decrypt(RAW, bits);
     store.set("calKey", unb64(bits)); store.set("calSalt", RAW.salt);
+    store.del("calFails"); store.del("calLockUntil");
     $("#pw").value = ""; $("#pwErr").textContent = "";
     show(data);
-  } catch { $("#pwErr").textContent = "密碼不對"; }
+  } catch {
+    const n = fails() + 1;
+    store.set("calFails", n); $("#pw").value = "";
+    if (n >= MAX_TRIES) {
+      store.set("calLockUntil", Date.now() + Math.min(LOCK_MIN * 2 ** (n - MAX_TRIES), LOCK_MAX));
+      $("#pwErr").textContent = lockMsg();
+    } else $("#pwErr").textContent = `密碼不對（還可以試 ${MAX_TRIES - n} 次）`;
+  }
   $("#pwBtn").disabled = false;
 };
 $("#logout").onclick = () => {
